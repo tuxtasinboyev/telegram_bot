@@ -22,10 +22,10 @@ services:
     restart: always
     env_file:
       - .env
-    volumes:
-      - .:/app
     ports:
       - "3000:3000"
+    volumes:
+      - .:/app
 
 volumes:
   postgres_data:

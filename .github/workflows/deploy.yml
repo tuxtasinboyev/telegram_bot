@@ -21,29 +21,22 @@ jobs:
         run: |
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2 🚀
+      - name: Deploy to EC2 via SSH 🚀
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            # Papka mavjud bo'lmasa klon qilinadi
             if [ ! -d "telegram-bot" ]; then
               git clone git@github.com:tuxtasinboyev/telegram_bot.git telegram-bot
             fi
 
             cd telegram-bot
 
-            echo "📦 Pulling latest changes..."
+            echo "📦 Pulling latest code..."
             git reset --hard
             git pull origin main
 
-            echo "📦 Installing dependencies..."
-            npm install
-
-            echo "🏗 Building project..."
-            npm run build
-
-            echo "🔁 Restarting with PM2..."
-            pm2 delete telegram-bot || true
-            pm2 start dist/main.js --name telegram-bot
+            echo "🐳 Rebuilding and restarting Docker containers..."
+            docker compose down
+            docker compose up --build -d
           EOF
