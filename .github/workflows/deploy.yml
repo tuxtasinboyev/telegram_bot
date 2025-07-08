@@ -29,7 +29,7 @@ jobs:
             if [ ! -d "telegram-bot" ]; then
               git clone git@github.com:tuxtasinboyev/telegram_bot.git telegram-bot
             fi
-
+            
             cd telegram-bot
 
             echo "📦 Pulling latest code..."
