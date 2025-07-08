@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: shazam_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 2008
+      POSTGRES_DB: shazam_bot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  bot:
+    build: .
+    container_name: shazam_bot
+    depends_on:
+      - postgres
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  telegramId String   @unique
+  username   String?
+  firstName  String?
+  lastName   String?
+  phone      String?
+  createdAt  DateTime @default(now())
+
+  queries Query[]
+
+  @@map("users")
+}
+
+model Query {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  fileId     String
+  fileUrl    String?
+  recognized Boolean @default(false)
+  resultId   String?
+
+  createdAt DateTime @default(now())
+  song      Song?    @relation(fields: [resultId], references: [id])
+}
+
+model Song {
+  id            String  @id @default(cuid())
+  title         String
+  artist        String
+  album         String?
+  releaseDate   String?
+  genre         String?
+  spotifyUrl    String?
+  appleMusicUrl String?
+
+  createdAt DateTime @default(now())
+  queries   Query[]
+}
