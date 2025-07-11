@@ -4,9 +4,12 @@ import { Context } from "telegraf";
 import * as dotenv from "dotenv"
 import { ConfigService } from "@nestjs/config";
 import { InlineKeyboardButton } from "telegraf/typings/core/types/typegram";
+import { adminKeybords, clearChat, keybords, messagesMap, welcomeText } from "./utility";
+import { Role } from "@prisma/client";
 dotenv.config()
 @Update()
 export class BotService {
+    private messageMap: messagesMap = new Map()
     constructor(private service: PrismaService, private config: ConfigService) { }
     @Start()
     async start(@Ctx() ctx: Context) {
@@ -14,6 +17,44 @@ export class BotService {
         const findUser = await this.service.user.findUnique({
             where: { telegramId: datas?.id.toString() }
         });
+
+        const userId = ctx.from?.id?.toString();
+        if (!userId) return;
+
+        const isBlocked = await this.service.blockedUser.findUnique({
+            where: { telegramId: userId },
+        });
+
+        if (isBlocked) {
+            const sent = await ctx.reply('🚫 Siz bloklangansiz!');
+            clearChat(ctx.from!.id, this.messageMap, sent);
+            return;
+        }
+
+        const actingUser = await this.service.user.findUnique({
+            where: { telegramId: userId },
+        });
+
+        if (!actingUser || actingUser.role !== Role.admin) {
+            const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
+            clearChat(ctx.from!.id, this.messageMap, sent);
+            return;
+        }
+        const telegramId = ctx.from?.id?.toString();
+        if (!telegramId) return;
+
+
+        if (findUser) {
+            if (findUser.role === Role.admin) {
+                const sent = await ctx.reply('Siz royxatdan otgansiz. Quyidagilardan birini tanlang:', adminKeybords());
+                clearChat(datas!.id, this.messageMap, sent)
+            }
+            else {
+                const sent = await ctx.reply('Siz royxatdan otgansiz. Quyidagilardan birini tanlang:', keybords());
+                clearChat(datas!.id, this.messageMap, sent)
+            }
+            return;
+        }
 
         if (!findUser) {
             const channels = this.config.get<string>('REQUIRED_CHANNELS')?.split(',') || [];
@@ -28,30 +69,16 @@ export class BotService {
                 callback_data: 'check_subs'
             }]);
 
-            await ctx.reply(' Botdan foydalanish uchun quyidagi kanallarga obuna boling:', {
+            const sent = await ctx.reply(welcomeText(), {
+                parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: buttons
                 }
-            });
+            }
+            );
 
-            return;
-        }
+            clearChat(datas!.id, this.messageMap, sent)
 
-        const telegramId = ctx.from?.id?.toString();
-        if (!telegramId) return;
-
-        if (findUser) {
-            ctx.reply('Siz royxatdan otgansiz. Quyidagilardan birini tanlang:', {
-                reply_markup: {
-                    keyboard: [
-                        [{ text: 'Profile' }],
-                        [{ text: 'Edit' }],
-                        [{ text: '/start' }]
-                    ],
-                    resize_keyboard: true,
-                    one_time_keyboard: true
-                }
-            });
             return;
         }
     }
@@ -76,15 +103,18 @@ export class BotService {
         }
 
         if (notSubscripted.length > 0) {
-            await ctx.reply(
+            const sent = await ctx.reply(
                 ` Siz hali quyidagi kanallarga obuna bolmagansiz:\n\n` +
                 notSubscripted.map(ch => `🔸 ${ch}`).join('\n') +
                 `\n\nIltimos, avval obuna boling.`
             );
-        } else {
-            await ctx.reply('✅ Obuna tekshirildi. Endi botdan foydalanishingiz mumkin!');
+            clearChat(ctx.from!.id, this.messageMap, sent)
 
-            await ctx.reply('tel raqamingizni kiriting!', {
+        } else {
+            const sent = await ctx.reply('✅ Obuna tekshirildi. Endi botdan foydalanishingiz mumkin!');
+
+            clearChat(ctx.from!.id, this.messageMap, sent)
+            const sent2 = await ctx.reply('tel raqamingizni kiriting!', {
                 reply_markup: {
                     keyboard: [
                         [{ text: 'contact share', request_contact: true }]
@@ -93,6 +123,8 @@ export class BotService {
                     one_time_keyboard: true
                 }
             });
+
+            clearChat(ctx.from!.id, this.messageMap, sent2)
         }
     }
 
@@ -103,6 +135,7 @@ export class BotService {
         if (!userId || !('contact' in ctx.message!)) {
             return ctx.reply('xatolik yuz berdi')
         }
+
         try {
             await this.service.user.upsert({
                 where: { telegramId: userId.toString() }, update: {
@@ -117,12 +150,27 @@ export class BotService {
                     phone: ctx.message.contact.phone_number
                 }
             })
-            await ctx.reply('contact qoshildi qaytattan /start bosing!')
+
+            const sent2 = await ctx.reply('contact qoshildi qaytattan /start bosing!')
+            if (ctx.from?.id) {
+                const ids = this.messageMap.get(ctx.from?.id) || [];
+                ids.push(sent2.message_id);
+                this.messageMap.set(ctx.from?.id, ids);
+            }
+            const existsUser = await this.service.user.findUnique({ where: { telegramId: ctx.from.id.toString() } })
+            if (existsUser!.role === Role.admin) {
+                const sent = await ctx.reply('Xush kelibsiz Admin Janoblari!!', adminKeybords())
+                clearChat(ctx.from!.id, this.messageMap, sent)
+                return
+            }
+
         } catch (error) {
             console.error(' Upsert xatoligi:', error);
-            await ctx.reply('Kontaktni saqlashda xatolik yuz berdi.');
+            const sent2 = await ctx.reply('Kontaktni saqlashda xatolik yuz berdi.');
+            clearChat(ctx.from!.id, this.messageMap, sent2)
         }
     }
+
 
 
 }
