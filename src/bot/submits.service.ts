@@ -67,7 +67,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -105,7 +105,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -220,7 +220,7 @@ export class SubmitService {
                 where: { telegramId: user_id },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -265,7 +265,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -294,7 +294,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -340,7 +340,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
@@ -370,7 +370,7 @@ export class SubmitService {
                 where: { telegramId: userId },
             });
 
-            if (!actingUser || actingUser.role !== Role.admin) {
+            if (!actingUser) {
                 const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!', {
                     reply_markup: {
                         remove_keyboard: true
@@ -425,15 +425,38 @@ export class SubmitService {
 
         }
         if (text === '🎯 Signal olish') {
+            const userId = ctx.from?.id?.toString();
+            if (!userId) return;
+
+            const isBlocked = await this.prisma.blockedUser.findUnique({
+                where: { telegramId: userId },
+            });
+
+            if (isBlocked) {
+                const sent = await ctx.reply('🚫 Siz bloklangansiz!');
+                clearChat(ctx.from!.id, this.messageMap, sent);
+                return;
+            }
+
+            const actingUser = await this.prisma.user.findUnique({
+                where: { telegramId: userId },
+            });
+
+            if (!actingUser) {
+                const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
+                clearChat(ctx.from!.id, this.messageMap, sent);
+                return;
+            }
+
             const gridSize = 5;
             const mineCount = 3;
 
             const clientSeed = ctx.from?.id?.toString() || 'anonymous';
 
-            const today = new Date().toISOString().split('T')[0]; 
+            const today = new Date().toISOString().split('T')[0];
             const serverSeed = `S3rV3r_${today}`;
 
-            const nonce = Date.now() % 100000; 
+            const nonce = Date.now() % 100000;
 
             const { grid, hash } = generateProvablyFairMines(
                 gridSize,

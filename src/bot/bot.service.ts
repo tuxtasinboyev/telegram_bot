@@ -21,25 +21,6 @@ export class BotService {
         const userId = ctx.from?.id?.toString();
         if (!userId) return;
 
-        const isBlocked = await this.service.blockedUser.findUnique({
-            where: { telegramId: userId },
-        });
-
-        if (isBlocked) {
-            const sent = await ctx.reply('🚫 Siz bloklangansiz!');
-            clearChat(ctx.from!.id, this.messageMap, sent);
-            return;
-        }
-
-        const actingUser = await this.service.user.findUnique({
-            where: { telegramId: userId },
-        });
-
-        if (!actingUser || actingUser.role !== Role.admin) {
-            const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
-            clearChat(ctx.from!.id, this.messageMap, sent);
-            return;
-        }
         const telegramId = ctx.from?.id?.toString();
         if (!telegramId) return;
 
