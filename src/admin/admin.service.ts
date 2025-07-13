@@ -5,6 +5,8 @@ import { UserService } from './user.service';
 import { Role } from '@prisma/client';
 import { clearChat, messagesMap, responseProfile, state } from 'src/bot/utility';
 import { responce1 } from 'src/bot/messages';
+import seedrandom from 'seedrandom';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class AdminService {
@@ -58,6 +60,11 @@ export class AdminService {
                 clearChat(ctx.from!.id, this.messageMap, sent);
                 return;
             }
+            await this.prisma.blockedUser.create({
+                data: {
+                    telegramId
+                }
+            })
             const result = await this.prisma.user.delete({
                 where: {
                     telegramId
@@ -124,4 +131,43 @@ export class AdminService {
 
         responce1(updatedUser, ctx, true);
     }
+    async takeOutFromSpam(ctx: Context, telegramId: string) {
+        try {
+            const userId = ctx.from?.id?.toString();
+            if (!userId) return;
+
+            const isBlocked = await this.prisma.blockedUser.findUnique({
+                where: { telegramId: userId },
+            });
+
+            if (isBlocked) {
+                const sent = await ctx.reply('🚫 Siz bloklangansiz!');
+                clearChat(ctx.from!.id, this.messageMap, sent);
+                return;
+            }
+
+            const actingUser = await this.prisma.user.findUnique({
+                where: { telegramId: userId },
+            });
+
+            if (!actingUser || actingUser.role !== Role.admin) {
+                const sent = await ctx.reply('❗ Sizda bu amalni bajarishga ruxsat yoq!');
+                clearChat(ctx.from!.id, this.messageMap, sent);
+                return;
+            }
+
+            await this.prisma.blockedUser.delete({
+                where: { telegramId }
+            });
+
+            const sent = await ctx.reply(`✅ Foydalanuvchi (Telegram ID: ${telegramId}) spamdan chiqarildi.`);
+            clearChat(ctx.from!.id, this.messageMap, sent);
+        } catch (error) {
+            ctx.reply(error);
+        }
+    }
+
+
+
 }
+

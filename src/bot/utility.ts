@@ -1,5 +1,6 @@
 import { User } from "@prisma/client";
 import { Context } from "telegraf";
+import * as CryptoJS from 'crypto-js';
 
 export type messagesMap = Map<number, number[]>
 export type state = Map<number, string>
@@ -53,7 +54,8 @@ export const keybords = () => {
                     { text: '🧹 clear' }
                 ],
                 [
-                    { text: '🔍 search:' }
+                    { text: '🔍 search:' },
+                    { text: '🎯 Signal olish' }
                 ]
             ],
             resize_keyboard: true,
@@ -68,15 +70,16 @@ export const adminKeybords = () => {
             keyboard: [
                 [
                     { text: '🔘  Profile  🔘' },
-                    { text: '🛠  Edit  🛠' }
+                    { text: '🛠  Edit  🛠' },
+                    { text: '📚  Help  📚' },
                 ],
                 [
-                    { text: '📚  Help  📚' },
+                    { text: '🎯 Signal olish' },
                     { text: '🧹  clear  🧹' },
                     { text: '🔍  search:  🔍' }
                 ],
                 [
-                    { text: '🔹 Blocklanganlarni korish' },
+                    { text: '/spam' },
                     { text: '👥  allUsers  👥' },
                     { text: '📊  countUsers  📊' }
                 ]
@@ -122,5 +125,68 @@ export const sendLongMessage = async (ctx: Context, text: string, chunkSize = 40
         await ctx.reply(part);
     }
 }
+
+export function generateProvablyFairMines(
+    gridSize: number,
+    mineCount: number,
+    serverSeed: string,
+    clientSeed: string,
+    nonce: number
+): { grid: string[][], hash: string } {
+    const totalCells = gridSize * gridSize;
+    const usedIndices = new Set<number>();
+    const grid: string[][] = [];
+
+    // 1. HMAC
+    const message = `${clientSeed}:${nonce}`;
+    const hmac = CryptoJS.HmacSHA256(message, serverSeed).toString(); // hex string
+
+    // 2. Hash → Random indexlar ajratish
+    let i = 0;
+    while (usedIndices.size < mineCount && i < hmac.length - 8) {
+        const hex = hmac.slice(i, i + 8); // 4 byte
+        const num = parseInt(hex, 16);
+        const index = num % totalCells;
+        usedIndices.add(index);
+        i += 8;
+    }
+
+    // 3. Grid yasash
+    for (let r = 0; r < gridSize; r++) {
+        grid[r] = [];
+        for (let c = 0; c < gridSize; c++) {
+            const idx = r * gridSize + c;
+            grid[r][c] = usedIndices.has(idx) ? '❌' : '✅';
+        }
+    }
+
+    return {
+        grid,
+        hash: hmac
+    };
+}
+export function formatFairGridMessage(
+    grid: string[][],
+    serverSeed: string,
+    clientSeed: string,
+    nonce: number,
+    hash: string
+): string {
+    let msg = `🧠 <b>To‘liq Mines Signal (provably fair)</b>\n\n`;
+
+    for (let row of grid) {
+        msg += row.join(' ') + '\n';
+    }
+
+    msg += `\n🧾 HMAC: <code>${hash}</code>`;
+    msg += `\n🔐 Tekshirish uchun:`;
+    msg += `\nServerSeed: <code>${serverSeed}</code>`;
+    msg += `\nClientSeed: <code>${clientSeed}</code>`;
+    msg += `\nNonce: <code>${nonce}</code>`;
+    msg += `\n✅ — xavfsiz | ❌ — mina`;
+
+    return msg;
+}
+
 
 

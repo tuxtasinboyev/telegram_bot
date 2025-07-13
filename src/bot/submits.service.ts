@@ -1,9 +1,9 @@
 import { ConfigService } from "@nestjs/config";
-import { Action, Ctx, On, Start, Update } from "nestjs-telegraf";
+import { Action, Ctx, Hears, On, Start, Update } from "nestjs-telegraf";
 import { GroqService } from "src/groq/groq.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { Context } from "telegraf";
-import { adminKeybords, clearChat, information, keybords, messagesMap, responseProfile, searchKeyboards, sendLongMessage, state } from "./utility";
+import { adminKeybords, clearChat, formatFairGridMessage, generateProvablyFairMines, information, keybords, messagesMap, responseProfile, searchKeyboards, sendLongMessage, state } from "./utility";
 import { UserService } from "src/admin/user.service";
 import { Role } from "@prisma/client";
 import { AdminService } from "src/admin/admin.service";
@@ -349,7 +349,7 @@ export class SubmitService {
             return;
         }
 
-        if (text && !text.startsWith('/') && !text.startsWith('🔍')) {
+        if (text && !text.startsWith('/') && !text.startsWith('🔍') && !text.startsWith('🎯 Signal olish')) {
             const userId = ctx.from?.id?.toString();
             if (!userId) return;
 
@@ -392,6 +392,62 @@ export class SubmitService {
             await ctx.reply(answer, searchKeyboards());
             return;
         }
+        if (text.includes('/spa')) {
+            const result = await this.prisma.blockedUser.findMany()
+            if (result.length === 0) {
+                await ctx.reply('✅ Hozirda hech qanday foydalanuvchi bloklanmagan.');
+                return;
+            }
+
+            const message = result.map((user, index) => {
+                return `🔒 <b>${index + 1}</b>
+🆔 <code>${user.telegramId}</code>
+📅 ${new Date(user.blockedAt).toLocaleString('uz-UZ')}`;
+            }).join('\n\n');
+
+            const inlineKeyboard = result.map((user, i) => {
+                return [
+                    {
+                        text: `❌ Spamdan chiqarish #${i + 1}`,
+                        callback_data: `spam:${user.telegramId}`
+                    }
+                ];
+            });
+
+            await ctx.reply(`<b>Blocklangan foydalanuvchilar:</b>\n\n${message}`, {
+                parse_mode: "HTML",
+                reply_markup: {
+                    inline_keyboard: inlineKeyboard
+                }
+            });
+
+            return
+
+        }
+        if (text === '🎯 Signal olish') {
+            const gridSize = 5;
+            const mineCount = 3;
+
+            const clientSeed = ctx.from?.id?.toString() || 'anonymous';
+
+            const today = new Date().toISOString().split('T')[0]; 
+            const serverSeed = `S3rV3r_${today}`;
+
+            const nonce = Date.now() % 100000; 
+
+            const { grid, hash } = generateProvablyFairMines(
+                gridSize,
+                mineCount,
+                serverSeed,
+                clientSeed,
+                nonce
+            );
+
+            const msg = formatFairGridMessage(grid, serverSeed, clientSeed, nonce, hash);
+
+            await ctx.reply(msg, { parse_mode: 'HTML' });
+        }
+
 
 
         return
@@ -454,6 +510,12 @@ export class SubmitService {
         console.log(ctx.callbackQuery?.['data'].split(":")[1]);
         const telegramId = ctx.callbackQuery?.['data'].split(":")[1]
         await this.adminService.updateRole(ctx, telegramId)
+    }
+    @Action(/spam:(.+)/)
+    async TakeOut(@Ctx() ctx: Context) {
+        console.log(ctx.callbackQuery?.['data']);
+        const telegramId = ctx.callbackQuery?.['data'].split(":")[1].toString()
+        await this.adminService.takeOutFromSpam(ctx, telegramId)
     }
 
 }
